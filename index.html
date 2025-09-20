@@ -990,10 +990,20 @@
                         <div class="mb-3">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-3">
                                 <p class="text-sm text-green-700 mb-2">✅ Enregistrement configuré</p>
-                                <audio controls class="w-full mb-2" preload="none" crossorigin="anonymous">
-                                    <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/mpeg">
-                                    Votre navigateur ne supporte pas l'élément audio.
-                                </audio>
+                                <div class="mb-2">
+                                    <audio controls class="w-full" preload="none">
+                                        <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/mpeg">
+                                        <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/wav">
+                                        <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/ogg">
+                                        Votre navigateur ne supporte pas l'élément audio.
+                                    </audio>
+                                    <div class="mt-1">
+                                        <a href="${song.audios[voice]}" target="_blank" rel="noopener noreferrer" 
+                                           class="text-blue-600 hover:text-blue-800 text-sm underline">
+                                            📥 Télécharger le fichier
+                                        </a>
+                                    </div>
+                                </div>
                                 <div class="flex justify-between items-center">
                                     <a href="${song.audios[voice]}" target="_blank" rel="noopener noreferrer" 
                                        class="text-blue-600 hover:text-blue-800 text-sm underline">
@@ -1033,12 +1043,18 @@
                     
                     ${song.audios && song.audios[voice] ? `
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                            <audio controls class="w-full mb-2" preload="none" crossorigin="anonymous">
+                            <audio controls class="w-full mb-2" preload="none">
                                 <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/mpeg">
+                                <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/wav">
+                                <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/ogg">
                                 Votre navigateur ne supporte pas l'élément audio.
                             </audio>
-                            <div class="text-sm text-blue-700">
-                                🎵 Enregistrement disponible
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-blue-700">🎵 Enregistrement disponible</span>
+                                <a href="${song.audios[voice]}" target="_blank" rel="noopener noreferrer" 
+                                   class="text-blue-600 hover:text-blue-800 underline">
+                                    📥 Télécharger
+                                </a>
                             </div>
                         </div>
                     ` : '<p class="text-gray-500 mb-3 p-3 bg-gray-50 rounded-lg">Aucun enregistrement disponible pour ce pupitre</p>'}
@@ -1069,7 +1085,7 @@
         }
 
         function convertGoogleDriveLink(originalLink) {
-            // Convert Google Drive sharing link to direct download link
+            // Convert Google Drive sharing link to streamable link
             if (!originalLink) return '';
             
             // Handle different Google Drive link formats
@@ -1087,9 +1103,9 @@
                 fileId = openMatch[1];
             }
             
-            // If we found a file ID, convert to direct download link
+            // If we found a file ID, convert to streamable link
             if (fileId) {
-                return `https://drive.google.com/uc?export=download&id=${fileId}`;
+                return `https://drive.google.com/uc?export=view&id=${fileId}`;
             }
             
             // If it's already a direct link or different format, return as is
@@ -1242,8 +1258,10 @@
                                 <div id="currentTrackInfo" class="text-lg font-medium text-gray-900 mb-2">
                                     ${currentPlaylist[0].title}
                                 </div>
-                                <audio id="playlistAudio" controls class="w-full" preload="none" crossorigin="anonymous">
+                                <audio id="playlistAudio" controls class="w-full" preload="none">
                                     <source src="${currentPlaylist[0].src}" type="audio/mpeg">
+                                    <source src="${currentPlaylist[0].src}" type="audio/wav">
+                                    <source src="${currentPlaylist[0].src}" type="audio/ogg">
                                     Votre navigateur ne supporte pas l'élément audio.
                                 </audio>
                                 <div class="flex justify-between items-center mt-3">
@@ -1256,6 +1274,12 @@
                                     <button onclick="nextTrack()" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
                                         Suivant ⏭️
                                     </button>
+                                </div>
+                                <div class="mt-2 text-center">
+                                    <a href="${currentPlaylist[0].originalSrc}" target="_blank" rel="noopener noreferrer" 
+                                       class="text-blue-600 hover:text-blue-800 text-sm underline">
+                                        📥 Télécharger ce fichier
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -1270,7 +1294,6 @@
                                         <span class="font-medium">${track.title}</span>
                                         ${index === currentPlaylistIndex ? '<span class="ml-2 text-yellow-600">▶️</span>' : ''}
                                     </div>
-
                                 </div>
                             `).join('')}
                         </div>
@@ -1322,6 +1345,12 @@
             const trackInfo = document.getElementById('currentTrackInfo');
             if (trackInfo) {
                 trackInfo.textContent = track.title;
+            }
+            
+            // Update download link
+            const downloadLink = playlistModal.querySelector('a[href*="drive.google.com"]');
+            if (downloadLink) {
+                downloadLink.href = track.originalSrc;
             }
             
             // Update playlist highlighting
@@ -1397,5 +1426,5 @@
         // Initialize the app
         init();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'981fc54e82dad114',t:'MTc1ODM1NTAzMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98202d8211629f0b',t:'MTc1ODM1OTMwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
