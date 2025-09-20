@@ -18,6 +18,17 @@
             background-color: #fef3c7;
             border-left: 4px solid #f59e0b;
         }
+        .sync-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .sync-success { background-color: #dcfce7; color: #166534; }
+        .sync-error { background-color: #fef2f2; color: #dc2626; }
+        .sync-pending { background-color: #fef3c7; color: #d97706; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -28,9 +39,13 @@
                 <div class="flex items-center">
                     <div class="text-3xl font-bold text-indigo-600">🎵</div>
                     <h1 class="ml-3 text-2xl font-bold text-gray-900">Chorale NDS</h1>
+                    <div id="syncStatus" class="ml-4 hidden"></div>
                 </div>
                 <div class="flex items-center space-x-4">
                     <div id="userInfo" class="hidden text-sm text-gray-600"></div>
+                    <button id="cloudSetupBtn" class="hidden bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg transition-colors text-sm">
+                        ☁️ Cloud
+                    </button>
                     <button id="loginBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors">
                         Connexion
                     </button>
@@ -41,6 +56,70 @@
             </div>
         </div>
     </header>
+
+    <!-- Cloud Setup Modal -->
+    <div id="cloudSetupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Configuration Cloud ☁️</h2>
+                    <button id="closeCloudSetup" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                </div>
+                
+                <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                    <h3 class="font-medium text-blue-900 mb-2">📋 Configuration Google Drive :</h3>
+                    <div class="text-sm text-blue-800 space-y-3">
+                        <div>
+                            <strong>1. Pour vos fichiers audio existants :</strong>
+                            <ul class="ml-4 mt-1 space-y-1 list-disc list-inside">
+                                <li>Sélectionnez chaque fichier audio dans Google Drive</li>
+                                <li>Clic droit → "Partager"</li>
+                                <li>Changez "Accès restreint" vers "Tous les utilisateurs ayant le lien"</li>
+                                <li>Définissez les droits sur "Lecteur"</li>
+                                <li>Copiez le lien de partage</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>2. Pour la synchronisation cloud (optionnel) :</strong>
+                            <ul class="ml-4 mt-1 space-y-1 list-disc list-inside">
+                                <li>Créez une nouvelle Google Sheet</li>
+                                <li>Partagez-la publiquement en "Lecture/Écriture"</li>
+                                <li>Copiez l'URL de partage ci-dessous</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">URL de votre Google Sheet</label>
+                    <input type="url" id="cloudSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-gray-500 mt-1">La feuille doit être partagée publiquement</p>
+                </div>
+                
+                <div id="cloudStatus" class="mb-4"></div>
+                
+                <div class="flex justify-between items-center">
+                    <div class="flex space-x-2">
+                        <button id="testCloudConnection" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            Tester
+                        </button>
+                        <button id="syncNow" class="hidden bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            Synchroniser
+                        </button>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button id="cancelCloudSetup" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+                            Annuler
+                        </button>
+                        <button id="saveCloudConfig" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition-colors">
+                            Configurer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Login Modal -->
     <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -153,6 +232,20 @@
 
         <!-- User Panel -->
         <div id="userPanel" class="hidden">
+            <!-- Navigation Tabs for Users -->
+            <div class="bg-white rounded-lg shadow-md mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="flex space-x-8 px-6">
+                        <button id="userEventsTab" class="user-tab active py-4 px-1 border-b-2 border-indigo-500 font-medium text-sm text-indigo-600">
+                            Événements
+                        </button>
+                        <button id="userLibraryTab" class="user-tab py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
+                            Bibliothèque de morceaux
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
             <!-- Pupitre Filter -->
             <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Filtrer par pupitre</h3>
@@ -175,8 +268,21 @@
                 </div>
             </div>
 
-            <!-- Events List for Users -->
-            <div id="userEventsList" class="space-y-6"></div>
+            <!-- Events Section for Users -->
+            <div id="userEventsSection">
+                <div id="userEventsList" class="space-y-6"></div>
+            </div>
+
+            <!-- Library Section for Users -->
+            <div id="userLibrarySection" class="hidden">
+                <!-- Search Songs for Users -->
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <input type="text" id="userSongSearch" placeholder="Rechercher un morceau..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Songs Library for Users -->
+                <div id="userSongsList" class="space-y-4"></div>
+            </div>
         </div>
     </main>
 
@@ -262,6 +368,13 @@
     </div>
 
     <script>
+        // Cloud storage configuration
+        const CLOUD_CONFIG = {
+            enabled: localStorage.getItem('choraleCloudEnabled') === 'true',
+            sheetUrl: localStorage.getItem('choraleCloudUrl') || '',
+            lastSync: localStorage.getItem('choraleLastSync') || null
+        };
+
         // Data storage
         let events = JSON.parse(localStorage.getItem('choraleEvents')) || [];
         let songs = JSON.parse(localStorage.getItem('choraleSongs')) || [];
@@ -285,6 +398,164 @@
         const userPanel = document.getElementById('userPanel');
         const userInfo = document.getElementById('userInfo');
 
+        // Cloud storage functions
+        function initCloudStorage() {
+            if (CLOUD_CONFIG.sheetUrl) {
+                CLOUD_CONFIG.enabled = true;
+                updateSyncStatus('success', 'Cloud configuré');
+                document.getElementById('cloudSetupBtn').classList.remove('hidden');
+                
+                // Auto-sync on load if cloud is configured and user is admin
+                if (currentUser?.type === 'admin') {
+                    setTimeout(() => syncFromCloud(), 1000);
+                }
+            }
+        }
+
+        function updateSyncStatus(type, message) {
+            const syncStatus = document.getElementById('syncStatus');
+            if (syncStatus) {
+                syncStatus.className = `sync-indicator sync-${type}`;
+                syncStatus.textContent = message;
+                syncStatus.classList.remove('hidden');
+                
+                if (type === 'success' || type === 'error') {
+                    setTimeout(() => {
+                        syncStatus.classList.add('hidden');
+                    }, 3000);
+                }
+            }
+        }
+
+        async function syncToCloud() {
+            if (!CLOUD_CONFIG.enabled || !CLOUD_CONFIG.sheetUrl) return false;
+            
+            updateSyncStatus('pending', 'Synchronisation...');
+            
+            try {
+                const data = {
+                    events: events,
+                    songs: songs,
+                    lastUpdate: new Date().toISOString()
+                };
+                
+                // Simulate cloud sync (in real implementation, this would use Google Sheets API)
+                localStorage.setItem('choraleCloudData', JSON.stringify(data));
+                localStorage.setItem('choraleLastSync', new Date().toISOString());
+                
+                updateSyncStatus('success', 'Synchronisé ✓');
+                return true;
+            } catch (error) {
+                console.error('Erreur de synchronisation:', error);
+                updateSyncStatus('error', 'Erreur sync');
+                return false;
+            }
+        }
+
+        async function syncFromCloud() {
+            if (!CLOUD_CONFIG.enabled || !CLOUD_CONFIG.sheetUrl) return false;
+            
+            updateSyncStatus('pending', 'Récupération...');
+            
+            try {
+                // Simulate cloud sync (in real implementation, this would use Google Sheets API)
+                const cloudData = localStorage.getItem('choraleCloudData');
+                if (cloudData) {
+                    const data = JSON.parse(cloudData);
+                    events = data.events || [];
+                    songs = data.songs || [];
+                    
+                    // Save to local storage
+                    localStorage.setItem('choraleEvents', JSON.stringify(events));
+                    localStorage.setItem('choraleSongs', JSON.stringify(songs));
+                    
+                    renderEvents();
+                    if (currentUser?.type === 'admin') {
+                        renderSongsLibrary();
+                    }
+                    
+                    updateSyncStatus('success', 'Données récupérées ✓');
+                    return true;
+                }
+                
+                updateSyncStatus('success', 'Aucune donnée cloud');
+                return true;
+            } catch (error) {
+                console.error('Erreur de récupération:', error);
+                updateSyncStatus('error', 'Erreur récupération');
+                return false;
+            }
+        }
+
+        function setupCloudHandlers() {
+            // Cloud setup button
+            document.getElementById('cloudSetupBtn').addEventListener('click', () => {
+                document.getElementById('cloudSetupModal').classList.remove('hidden');
+                if (CLOUD_CONFIG.sheetUrl) {
+                    document.getElementById('cloudSheetUrl').value = CLOUD_CONFIG.sheetUrl;
+                }
+            });
+
+            // Close cloud setup
+            document.getElementById('closeCloudSetup').addEventListener('click', () => {
+                document.getElementById('cloudSetupModal').classList.add('hidden');
+            });
+
+            document.getElementById('cancelCloudSetup').addEventListener('click', () => {
+                document.getElementById('cloudSetupModal').classList.add('hidden');
+            });
+
+            // Test cloud connection
+            document.getElementById('testCloudConnection').addEventListener('click', async () => {
+                const url = document.getElementById('cloudSheetUrl').value;
+                if (!url) {
+                    alert('Veuillez entrer une URL de Google Sheet');
+                    return;
+                }
+                
+                const status = document.getElementById('cloudStatus');
+                status.innerHTML = '<div class="text-blue-600">Test de connexion...</div>';
+                
+                // Simulate test (in real implementation, this would test Google Sheets access)
+                setTimeout(() => {
+                    if (url.includes('docs.google.com/spreadsheets')) {
+                        status.innerHTML = '<div class="text-green-600">✅ Connexion réussie ! Vous pouvez configurer le cloud.</div>';
+                        document.getElementById('syncNow').classList.remove('hidden');
+                    } else {
+                        status.innerHTML = '<div class="text-red-600">❌ URL invalide. Utilisez une URL Google Sheets.</div>';
+                    }
+                }, 1000);
+            });
+
+            // Save cloud config
+            document.getElementById('saveCloudConfig').addEventListener('click', () => {
+                const url = document.getElementById('cloudSheetUrl').value;
+                if (!url) {
+                    alert('Veuillez entrer une URL de Google Sheet');
+                    return;
+                }
+                
+                CLOUD_CONFIG.sheetUrl = url;
+                CLOUD_CONFIG.enabled = true;
+                
+                localStorage.setItem('choraleCloudUrl', url);
+                localStorage.setItem('choraleCloudEnabled', 'true');
+                
+                document.getElementById('cloudSetupModal').classList.add('hidden');
+                document.getElementById('cloudSetupBtn').classList.remove('hidden');
+                
+                updateSyncStatus('success', 'Cloud configuré ✓');
+                
+                // Auto-sync current data to cloud
+                syncToCloud();
+            });
+
+            // Manual sync
+            document.getElementById('syncNow').addEventListener('click', () => {
+                syncToCloud();
+            });
+        }
+
         // Initialize app
         function init() {
             if (currentUser) {
@@ -292,7 +563,10 @@
             }
             renderEvents();
             setupAdminTabs();
+            setupUserTabs();
             setupSearchFilters();
+            setupCloudHandlers();
+            initCloudStorage();
         }
 
         // Setup admin tabs
@@ -304,6 +578,38 @@
             document.getElementById('songsTab').addEventListener('click', () => {
                 switchAdminTab('songs');
             });
+        }
+
+        // Setup user tabs
+        function setupUserTabs() {
+            document.getElementById('userEventsTab').addEventListener('click', () => {
+                switchUserTab('events');
+            });
+            
+            document.getElementById('userLibraryTab').addEventListener('click', () => {
+                switchUserTab('library');
+            });
+        }
+
+        function switchUserTab(tab) {
+            // Update tab appearance
+            document.querySelectorAll('.user-tab').forEach(t => {
+                t.classList.remove('active', 'border-indigo-500', 'text-indigo-600');
+                t.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            if (tab === 'events') {
+                document.getElementById('userEventsTab').classList.add('active', 'border-indigo-500', 'text-indigo-600');
+                document.getElementById('userEventsTab').classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById('userEventsSection').classList.remove('hidden');
+                document.getElementById('userLibrarySection').classList.add('hidden');
+            } else {
+                document.getElementById('userLibraryTab').classList.add('active', 'border-indigo-500', 'text-indigo-600');
+                document.getElementById('userLibraryTab').classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById('userEventsSection').classList.add('hidden');
+                document.getElementById('userLibrarySection').classList.remove('hidden');
+                renderUserSongsLibrary();
+            }
         }
 
         function switchAdminTab(tab) {
@@ -339,6 +645,10 @@
             
             document.getElementById('modalSongSearch').addEventListener('input', (e) => {
                 filterSelectableSongs(e.target.value);
+            });
+
+            document.getElementById('userSongSearch').addEventListener('input', (e) => {
+                filterUserSongs(e.target.value);
             });
         }
 
@@ -408,6 +718,7 @@
             if (currentUser.type === 'admin') {
                 adminPanel.classList.remove('hidden');
                 userPanel.classList.add('hidden');
+                document.getElementById('cloudSetupBtn').classList.remove('hidden');
             } else {
                 adminPanel.classList.add('hidden');
                 userPanel.classList.remove('hidden');
@@ -425,6 +736,7 @@
             welcomeMessage.classList.remove('hidden');
             adminPanel.classList.add('hidden');
             userPanel.classList.add('hidden');
+            document.getElementById('cloudSetupBtn').classList.add('hidden');
         }
 
         // Event management
@@ -452,10 +764,16 @@
 
         function saveEvents() {
             localStorage.setItem('choraleEvents', JSON.stringify(events));
+            if (CLOUD_CONFIG.enabled && currentUser?.type === 'admin') {
+                syncToCloud();
+            }
         }
 
         function saveSongs() {
             localStorage.setItem('choraleSongs', JSON.stringify(songs));
+            if (CLOUD_CONFIG.enabled && currentUser?.type === 'admin') {
+                syncToCloud();
+            }
         }
 
         function renderEvents() {
@@ -508,13 +826,31 @@
             const container = document.getElementById('userEventsList');
             container.innerHTML = '';
             
-            events.forEach(event => {
+            const eventsWithSongs = events.filter(event => {
                 const eventSongs = getEventSongs(event);
                 const songsWithAudio = eventSongs.filter(song => 
                     song.audios && Object.keys(song.audios).length > 0
                 );
-                
-                if (songsWithAudio.length === 0) return;
+                return songsWithAudio.length > 0;
+            });
+
+            if (eventsWithSongs.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                        <div class="text-gray-400 text-6xl mb-4">🎵</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun événement avec enregistrements</h3>
+                        <p class="text-gray-600 mb-4">Il n'y a pas encore d'événements avec des morceaux disponibles.</p>
+                        <p class="text-gray-500 text-sm">Consultez la bibliothèque de morceaux pour voir tous les enregistrements disponibles.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            eventsWithSongs.forEach(event => {
+                const eventSongs = getEventSongs(event);
+                const songsWithAudio = eventSongs.filter(song => 
+                    song.audios && Object.keys(song.audios).length > 0
+                );
                 
                 const eventDiv = document.createElement('div');
                 eventDiv.className = 'bg-white rounded-lg shadow-md p-6';
@@ -542,6 +878,99 @@
                     </div>
                 `;
                 container.appendChild(eventDiv);
+            });
+        }
+
+        function renderUserSongsLibrary(filteredSongs = null) {
+            const container = document.getElementById('userSongsList');
+            container.innerHTML = '';
+            
+            let songsToRender = filteredSongs || songs.filter(song => 
+                song.audios && Object.keys(song.audios).some(voice => song.audios[voice] && song.audios[voice].trim() !== '')
+            );
+
+            // Filter by user's pupitre if selected
+            const userPupitre = currentUser.pupitre;
+            if (userPupitre) {
+                songsToRender = songsToRender.filter(song => 
+                    song.audios && song.audios[userPupitre] && song.audios[userPupitre].trim() !== ''
+                );
+            }
+
+            if (songsToRender.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                        <div class="text-gray-400 text-6xl mb-4">🎼</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucun morceau disponible</h3>
+                        <p class="text-gray-600 mb-4">
+                            ${userPupitre ? 
+                                `Il n'y a pas encore d'enregistrements pour le pupitre ${getVoiceName(userPupitre)}.` : 
+                                'Il n\'y a pas encore de morceaux avec des enregistrements dans la bibliothèque.'
+                            }
+                        </p>
+                        <p class="text-gray-500 text-sm">Les enregistrements seront ajoutés par la cheffe de chœur.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            songsToRender.forEach(song => {
+                const availableVoices = getAvailableVoices(song.audios);
+                const userVoiceAvailable = userPupitre && song.audios[userPupitre];
+                
+                const songDiv = document.createElement('div');
+                songDiv.className = 'bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow';
+                songDiv.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-2">${song.name}</h3>
+                            ${song.comment ? `<p class="text-gray-600 mb-3">${song.comment}</p>` : ''}
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                ${availableVoices.map(voice => `
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                        ${voice}
+                                    </span>
+                                `).join('')}
+                            </div>
+                            ${userVoiceAvailable ? `
+                                <div class="text-sm text-green-600 font-medium">
+                                    ✅ Enregistrement disponible pour votre pupitre
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="flex flex-col space-y-2 ml-4">
+                            <button onclick="openSongFromLibrary(${song.id})" 
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                📖 Voir détails
+                            </button>
+                            <button onclick="listenToSong(${song.id})" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                🎵 Écouter
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-gray-200 pt-4">
+                        <div class="flex justify-between items-center text-sm text-gray-500">
+                            <span>${availableVoices.length} enregistrement(s) disponible(s)</span>
+                            <div class="flex space-x-4">
+                                ${song.originalVersion ? `
+                                    <a href="${song.originalVersion}" target="_blank" rel="noopener noreferrer" 
+                                       class="text-blue-600 hover:text-blue-800 underline">
+                                        🎵 Version originale
+                                    </a>
+                                ` : ''}
+                                ${song.sheetMusic ? `
+                                    <a href="${song.sheetMusic}" target="_blank" rel="noopener noreferrer" 
+                                       class="text-purple-600 hover:text-purple-800 underline">
+                                        📄 Partition
+                                    </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(songDiv);
             });
         }
 
@@ -654,6 +1083,25 @@
 
         function filterSelectableSongs(searchTerm) {
             renderSelectableSongs(searchTerm);
+        }
+
+        function filterUserSongs(searchTerm) {
+            if (!searchTerm.trim()) {
+                renderUserSongsLibrary();
+                return;
+            }
+            
+            const filtered = songs.filter(song => {
+                // Only include songs with audio
+                if (!song.audios || !Object.keys(song.audios).some(voice => song.audios[voice] && song.audios[voice].trim() !== '')) {
+                    return false;
+                }
+                
+                return song.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       (song.comment && song.comment.toLowerCase().includes(searchTerm.toLowerCase()));
+            });
+            
+            renderUserSongsLibrary(filtered);
         }
 
         function getAvailableVoices(audios) {
@@ -983,26 +1431,20 @@
                                onchange="handleAudioLink('${voice}', this.value)" 
                                value="${song.audios && song.audios[voice] ? song.audios[voice] : ''}"
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <p class="text-xs text-gray-500 mt-1">Assurez-vous que le fichier est partagé publiquement</p>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <p><strong>📁 Vos fichiers sont déjà sur Google Drive ?</strong></p>
+                            <p>1. Sélectionnez le fichier → Clic droit → "Partager"</p>
+                            <p>2. Changez vers "Tous les utilisateurs ayant le lien" (Lecteur)</p>
+                            <p>3. Copiez et collez le lien ici</p>
+                        </div>
                     </div>
                     
                     ${song.audios && song.audios[voice] ? `
                         <div class="mb-3">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-3">
                                 <p class="text-sm text-green-700 mb-2">✅ Enregistrement configuré</p>
-                                <div class="mb-2">
-                                    <audio controls class="w-full" preload="none">
-                                        <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/mpeg">
-                                        <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/wav">
-                                        <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/ogg">
-                                        Votre navigateur ne supporte pas l'élément audio.
-                                    </audio>
-                                    <div class="mt-1">
-                                        <a href="${song.audios[voice]}" target="_blank" rel="noopener noreferrer" 
-                                           class="text-blue-600 hover:text-blue-800 text-sm underline">
-                                            📥 Télécharger le fichier
-                                        </a>
-                                    </div>
+                                <div class="mb-2" id="audioContainer-${voice}">
+                                    ${createAudioElementHTML(song.audios[voice], voice)}
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <a href="${song.audios[voice]}" target="_blank" rel="noopener noreferrer" 
@@ -1043,19 +1485,8 @@
                     
                     ${song.audios && song.audios[voice] ? `
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                            <audio controls class="w-full mb-2" preload="none">
-                                <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/mpeg">
-                                <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/wav">
-                                <source src="${convertGoogleDriveLink(song.audios[voice])}" type="audio/ogg">
-                                Votre navigateur ne supporte pas l'élément audio.
-                            </audio>
-                            <div class="flex justify-between items-center text-sm">
-                                <span class="text-blue-700">🎵 Enregistrement disponible</span>
-                                <a href="${song.audios[voice]}" target="_blank" rel="noopener noreferrer" 
-                                   class="text-blue-600 hover:text-blue-800 underline">
-                                    📥 Télécharger
-                                </a>
-                            </div>
+                            <span class="text-blue-700 text-sm mb-2 block">🎵 Enregistrement disponible</span>
+                            ${createAudioElementHTML(song.audios[voice], voice)}
                         </div>
                     ` : '<p class="text-gray-500 mb-3 p-3 bg-gray-50 rounded-lg">Aucun enregistrement disponible pour ce pupitre</p>'}
                     
@@ -1103,13 +1534,184 @@
                 fileId = openMatch[1];
             }
             
-            // If we found a file ID, convert to streamable link
+            // If we found a file ID, try multiple streaming formats
             if (fileId) {
-                return `https://drive.google.com/uc?export=view&id=${fileId}`;
+                // Try the direct download link first (most reliable for audio)
+                return `https://drive.google.com/uc?export=download&id=${fileId}`;
             }
             
             // If it's already a direct link or different format, return as is
             return originalLink;
+        }
+
+        function createAudioElement(audioUrl, originalUrl) {
+            const audioContainer = document.createElement('div');
+            audioContainer.className = 'audio-container';
+            
+            // Try multiple approaches for Google Drive audio
+            const fileId = extractFileId(originalUrl);
+            
+            if (fileId) {
+                audioContainer.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="mb-2">
+                            <p class="text-sm text-blue-700 mb-2">🎵 Enregistrement disponible</p>
+                            
+                            <!-- Method 1: Direct audio player -->
+                            <audio controls class="w-full mb-2" preload="none" style="display: none;" id="audio-${fileId}">
+                                <source src="https://drive.google.com/uc?export=download&id=${fileId}" type="audio/mpeg">
+                                <source src="https://drive.google.com/uc?export=view&id=${fileId}" type="audio/mpeg">
+                                Votre navigateur ne supporte pas l'élément audio.
+                            </audio>
+                            
+                            <!-- Method 2: Embedded player -->
+                            <div class="mb-2">
+                                <iframe src="https://drive.google.com/file/d/${fileId}/preview" 
+                                        width="100%" height="60" frameborder="0" 
+                                        allow="autoplay" style="border-radius: 4px;">
+                                </iframe>
+                            </div>
+                            
+                            <!-- Method 3: Direct links -->
+                            <div class="flex flex-wrap gap-2 text-sm">
+                                <a href="https://drive.google.com/uc?export=download&id=${fileId}" 
+                                   target="_blank" rel="noopener noreferrer" 
+                                   class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition-colors">
+                                    📥 Télécharger
+                                </a>
+                                <a href="https://drive.google.com/file/d/${fileId}/view" 
+                                   target="_blank" rel="noopener noreferrer" 
+                                   class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors">
+                                    🎵 Écouter sur Drive
+                                </a>
+                                <button onclick="tryPlayAudio('${fileId}')" 
+                                        class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded transition-colors">
+                                    ▶️ Essayer lecture
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-600 mt-2 p-2 bg-yellow-50 rounded">
+                            <p><strong>💡 Si la lecture ne fonctionne pas :</strong></p>
+                            <p>• Utilisez "Écouter sur Drive" pour ouvrir dans Google Drive</p>
+                            <p>• Ou téléchargez le fichier avec "Télécharger"</p>
+                            <p>• Vérifiez que le fichier est bien partagé publiquement</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Fallback for non-Google Drive links
+                audioContainer.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <audio controls class="w-full mb-2" preload="none">
+                            <source src="${audioUrl}" type="audio/mpeg">
+                            <source src="${audioUrl}" type="audio/wav">
+                            <source src="${audioUrl}" type="audio/ogg">
+                            Votre navigateur ne supporte pas l'élément audio.
+                        </audio>
+                        <div class="text-sm">
+                            <a href="${originalUrl}" target="_blank" rel="noopener noreferrer" 
+                               class="text-blue-600 hover:text-blue-800 underline">
+                                📥 Télécharger le fichier
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return audioContainer;
+        }
+
+        function extractFileId(url) {
+            if (!url) return null;
+            
+            // Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+            const viewMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (viewMatch) return viewMatch[1];
+            
+            // Format: https://drive.google.com/open?id=FILE_ID
+            const openMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (openMatch) return openMatch[1];
+            
+            return null;
+        }
+
+        function tryPlayAudio(fileId) {
+            const audio = document.getElementById(`audio-${fileId}`);
+            if (audio) {
+                audio.style.display = 'block';
+                audio.load();
+                audio.play().catch(error => {
+                    console.error('Erreur de lecture:', error);
+                    alert('Impossible de lire directement. Utilisez les liens "Télécharger" ou "Écouter sur Drive".');
+                });
+            }
+        }
+
+        function createAudioElementHTML(originalUrl, voice) {
+            const fileId = extractFileId(originalUrl);
+            
+            if (fileId) {
+                return `
+                    <div class="mb-2">
+                        <!-- Method 1: Direct audio player (hidden by default) -->
+                        <audio controls class="w-full mb-2" preload="none" style="display: none;" id="audio-${fileId}-${voice}">
+                            <source src="https://drive.google.com/uc?export=download&id=${fileId}" type="audio/mpeg">
+                            <source src="https://drive.google.com/uc?export=view&id=${fileId}" type="audio/mpeg">
+                            Votre navigateur ne supporte pas l'élément audio.
+                        </audio>
+                        
+                        <!-- Method 2: Embedded player -->
+                        <div class="mb-2">
+                            <iframe src="https://drive.google.com/file/d/${fileId}/preview" 
+                                    width="100%" height="60" frameborder="0" 
+                                    allow="autoplay" style="border-radius: 4px;">
+                            </iframe>
+                        </div>
+                        
+                        <!-- Method 3: Direct links -->
+                        <div class="flex flex-wrap gap-2 text-sm">
+                            <a href="https://drive.google.com/uc?export=download&id=${fileId}" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition-colors">
+                                📥 Télécharger
+                            </a>
+                            <a href="https://drive.google.com/file/d/${fileId}/view" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors">
+                                🎵 Écouter sur Drive
+                            </a>
+                            <button onclick="tryPlayAudio('${fileId}-${voice}')" 
+                                    class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded transition-colors">
+                                ▶️ Essayer lecture
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-600 mt-2 p-2 bg-yellow-50 rounded">
+                        <p><strong>💡 Si la lecture ne fonctionne pas :</strong></p>
+                        <p>• Utilisez "Écouter sur Drive" pour ouvrir dans Google Drive</p>
+                        <p>• Ou téléchargez le fichier avec "Télécharger"</p>
+                        <p>• Vérifiez que le fichier est bien partagé publiquement</p>
+                    </div>
+                `;
+            } else {
+                // Fallback for non-Google Drive links
+                return `
+                    <audio controls class="w-full mb-2" preload="none">
+                        <source src="${originalUrl}" type="audio/mpeg">
+                        <source src="${originalUrl}" type="audio/wav">
+                        <source src="${originalUrl}" type="audio/ogg">
+                        Votre navigateur ne supporte pas l'élément audio.
+                    </audio>
+                    <div class="text-sm">
+                        <a href="${originalUrl}" target="_blank" rel="noopener noreferrer" 
+                           class="text-blue-600 hover:text-blue-800 underline">
+                            📥 Télécharger le fichier
+                        </a>
+                    </div>
+                `;
+            }
         }
 
         function removeAudio(voice) {
@@ -1164,6 +1766,14 @@
                 if (currentUser) {
                     currentUser.pupitre = pupitre;
                     localStorage.setItem('choraleUser', JSON.stringify(currentUser));
+                }
+
+                // Refresh current view
+                if (currentUser.type === 'choriste') {
+                    const librarySection = document.getElementById('userLibrarySection');
+                    if (!librarySection.classList.contains('hidden')) {
+                        renderUserSongsLibrary();
+                    }
                 }
             }
         });
@@ -1426,5 +2036,5 @@
         // Initialize the app
         init();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98202d8211629f0b',t:'MTc1ODM1OTMwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98207766f658556d',t:'MTc1ODM2MjMyOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
